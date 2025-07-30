@@ -16,7 +16,6 @@
         - Report Info: Detailed explanation of a topic. Goal: Deepen Understanding. Viz/Method: Expandable text area with LLM-generated content. Interaction: "Explain with Gemini" button triggers an API call to Gemini, fetching and displaying a detailed explanation. Justification: Provides on-demand, context-aware information directly within the learning flow, enhancing the study experience. The window is now scrollable for better content consumption. Library: Gemini API (fetch).
         - Report Info: Conversational Q&A on a topic. Goal: Interactive Learning & Clarification. Viz/Method: Modal chat window with dynamic message display. Interaction: "Chat with Gemini" button opens a modal. User types questions, Gemini responds. Justification: Offers real-time, personalized support and clarification, fostering deeper engagement with the material. Library: Gemini API (fetch).
     -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -537,7 +536,7 @@
                             <button class="bg-4285F4 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors explain-gemini-btn" data-topic-title="${topic.title}" data-topic-concepts="${topic.concepts}">
                                 ✨ Explain with Gemini
                             </button>
-                            <button class="bg-FBBC05 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg text-sm transition-colors chat-gemini-btn" data-topic-title="${topic.title}" data-topic-concepts="${topic.concepts}">
+                            <button class="bg-FBBC05 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors chat-gemini-btn" data-topic-title="${topic.title}" data-topic-concepts="${topic.concepts}">
                                 💬 Chat with Gemini
                             </button>
                         </div>
@@ -645,7 +644,7 @@
             chatModalOverlay.classList.add('open');
             chatTopicTitle.textContent = `Chat with Gemini about: ${topicTitle}`;
             chatMessagesDiv.innerHTML = ''; // Clear previous chat
-            currentChatHistory = []; // Reset chat history
+            currentChatHistory = []; // Reset chat history for a new conversation
             currentTopicContext = `You are discussing the AI/LLM topic "${topicTitle}" with key concepts: "${topicConcepts}". Keep your responses focused on this topic.`;
             
             // Add an initial message from Gemini
@@ -673,7 +672,6 @@
             if (userMessage === '') return;
 
             appendMessage('user', userMessage);
-            currentChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
             chatInput.value = ''; // Clear input
 
             // Add loading indicator
@@ -683,9 +681,18 @@
             chatMessagesDiv.appendChild(loadingMessageDiv);
             chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
 
-            const prompt = currentTopicContext + "\n" + userMessage;
+            let payloadContents;
+            if (currentChatHistory.length === 0) { // This is the very first user message in this chat session
+                // Prepend the context to the first user message for the API call
+                payloadContents = [{ role: "user", parts: [{ text: currentTopicContext + "\n" + userMessage }] }];
+            } else {
+                // For subsequent messages, just add the user's message
+                payloadContents = [...currentChatHistory, { role: "user", parts: [{ text: userMessage }] }];
+            }
+            // Update currentChatHistory with the *actual* user message for display and future context
+            currentChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
-            const payload = { contents: currentChatHistory };
+            const payload = { contents: payloadContents };
             const apiKey = ""; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
