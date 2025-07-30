@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive AI & LLM Expert Study Plan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Pitch Black & Google Accents" - A true black (#000000) as the main background, with very dark grays (#111111, #222222) for component backgrounds. Text is a soft white (#f0f0f0) and light gray (#b0b0b0). Accent colors are inspired by Google's brand palette: blue (#4285F4), red (#EA4335), yellow (#FBBC05), and green (#34A853) for key interactive elements and progress indicators. -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard. The primary navigation consists of tabs for each of the 6 weeks. Selecting a week dynamically loads the 7-day plan for that week into the main content area. Each day is a clickable accordion that expands to show the two topics for that day, including key concepts and learning activities. This structure was chosen to break down the dense 42-day plan into manageable, user-selectable chunks, preventing information overload. A persistent progress tracker with a donut chart and counters provides immediate visual feedback, enhancing motivation and user engagement. This non-linear, task-oriented design is more usable than a long, scrollable document. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Overall learning progress (number of topics completed). Goal: Inform & Motivate. Viz/Method: Donut Chart (Chart.js) and dynamic text counters. Interaction: The chart updates automatically as users check off topics. Justification: A donut chart is a visually appealing and instantly understandable way to represent part-to-whole relationships, perfect for tracking progress. Library: Chart.js.
+        - Report Info: Weekly and daily study topics. Goal: Organize & Inform. Viz/Method: Interactive Tabs and Accordions (HTML/CSS/JS). Interaction: Clicking a week tab filters the daily content. Clicking a day accordion expands/collapses its details. Justification: This standard UI pattern is highly intuitive and allows users to control the density of information displayed, which is ideal for a detailed plan. Method: Custom JS with Tailwind CSS.
+        - Report Info: Individual topic completion. Goal: Interact & Track. Viz/Method: Checkboxes (HTML/JS). Interaction: Clicking a checkbox marks a topic as complete, updates the progress chart, and persists the state. Justification: Checkboxes are the universal UI element for marking tasks as done, providing clear, direct interaction. Method: Custom JS.
+        - Report Info: Detailed explanation of a topic. Goal: Deepen Understanding. Viz/Method: Expandable text area with LLM-generated content. Interaction: "Explain with Gemini" button triggers an API call to Gemini, fetching and displaying a detailed explanation. Justification: Provides on-demand, context-aware information directly within the learning flow, enhancing the study experience. The window is now scrollable for better content consumption. Library: Gemini API (fetch).
+        - Report Info: Conversational Q&A on a topic. Goal: Interactive Learning & Clarification. Viz/Method: Modal chat window with dynamic message display. Interaction: "Chat with Gemini" button opens a modal. User types questions, Gemini responds. Justification: Offers real-time, personalized support and clarification, fostering deeper engagement with the material. Library: Gemini API (fetch).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000; /* Pitch black background */
+            color: #f0f0f0; /* Soft white text */
+        }
+        .week-tab {
+            transition: all 0.3s ease;
+            color: #b0b0b0; /* Light gray for inactive tabs */
+        }
+        .week-tab.active {
+            background-color: #222222; /* Darker background for active tab */
+            color: #4285F4; /* Google Blue for active tab text */
+            border-bottom-color: #4285F4; /* Google Blue for active tab border */
+        }
+        .day-accordion-header {
+            transition: background-color 0.3s ease;
+        }
+        .day-accordion-header:hover {
+            background-color: #111111; /* Darker hover for dark mode */
+        }
+        .day-accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+        }
+        .day-accordion.open .day-accordion-content {
+            max-height: 1000px; /* Adjust as needed */
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .progress-bar-fill {
+            transition: width 0.5s ease-in-out;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 250px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+        }
+        input[type="checkbox"] {
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid #555555; /* Darker gray border for checkbox */
+            border-radius: 0.25rem;
+            cursor: pointer;
+            background-color: #333333; /* Darker background for unchecked checkbox */
+            transition: all 0.2s ease-in-out;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #34A853; /* Google Green for checked checkbox */
+            border-color: #228B22; /* Darker green border */
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✔';
+            color: white;
+            display: block;
+            text-align: center;
+            line-height: 1.2;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .gemini-explanation-content {
+            max-height: 0;
+            overflow-y: auto; /* Make it scrollable */
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            background-color: #111111; /* Even darker background for Gemini content */
+            border-left: 4px solid #FBBC05; /* Google Yellow border */
+            color: #e0e0e0; /* Light text for explanation */
+        }
+        .gemini-explanation-content.open {
+            max-height: 240px; /* Fixed max height for scrolling */
+            padding: 1rem;
+        }
+        .gemini-explanation-content h2 {
+            font-size: 1.5em; /* Equivalent to text-xl or text-2xl */
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: #4285F4; /* Google Blue for headings */
+        }
+        .gemini-explanation-content h3 {
+            font-size: 1.25em; /* Equivalent to text-lg */
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: #34A853; /* Google Green for subheadings */
+        }
+
+        /* Animations */
+        .fade-in-slide-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInSlideUp 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeInSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Chat Modal Styles */
+        .chat-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+        .chat-modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        .chat-modal-content {
+            background-color: #222222;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 600px;
+            height: 80%;
+            max-height: 700px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .chat-modal-overlay.open .chat-modal-content {
+            transform: scale(1);
+        }
+        .chat-header {
+            background-color: #111111;
+            padding: 1rem;
+            border-bottom: 1px solid #333333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background-color: #000000;
+        }
+        .chat-message {
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: flex-start;
+        }
+        .chat-message.user {
+            justify-content: flex-end;
+        }
+        .chat-message.gemini {
+            justify-content: flex-start;
+        }
+        .chat-message-bubble {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .chat-message.user .chat-message-bubble {
+            background-color: #4285F4; /* Google Blue for user messages */
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .chat-message.gemini .chat-message-bubble {
+            background-color: #333333; /* Dark gray for Gemini messages */
+            color: #f0f0f0;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .chat-input-container {
+            padding: 1rem;
+            border-top: 1px solid #333333;
+            display: flex;
+            gap: 0.5rem;
+            background-color: #111111;
+        }
+        .chat-input {
+            flex-grow: 1;
+            background-color: #333333;
+            border: 1px solid #555555;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #f0f0f0;
+            outline: none;
+        }
+        .chat-input::placeholder {
+            color: #b0b0b0;
+        }
+        .chat-send-btn {
+            background-color: #34A853; /* Google Green for send button */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+        .chat-send-btn:hover {
+            background-color: #228B22; /* Darker green on hover */
+        }
+        .chat-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #b0b0b0;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .chat-close-btn:hover {
+            color: #EA4335; /* Google Red on hover */
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-f0f0f0">Your AI & LLM Expert Study Plan</h1>
+            <p class="mt-2 text-lg text-b0b0b0">An interactive journey to master Artificial Intelligence and Large Language Models.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-222222 p-6 rounded-2xl shadow-lg">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-f0f0f0 mb-4">Weekly Roadmap</h2>
+                    <nav id="week-tabs" class="flex flex-wrap border-b-2 border-555555">
+                    </nav>
+                </div>
+                <div id="daily-plan-container">
+                </div>
+            </div>
+
+            <aside class="lg:col-span-1 bg-222222 p-6 rounded-2xl shadow-lg h-fit sticky top-8">
+                <h2 class="text-2xl font-bold text-f0f0f0 mb-4 text-center">Your Progress</h2>
+                <div class="chart-container mb-4">
+                    <canvas id="progressChart"></canvas>
+                </div>
+                <div class="text-center">
+                    <p class="text-xl font-medium text-b0b0b0">
+                        <span id="completed-topics-count" class="font-bold text-34A853">0</span> of 
+                        <span id="total-topics-count" class="font-bold text-f0f0f0">0</span> topics completed
+                    </p>
+                    <p id="progress-percentage" class="text-3xl font-bold text-4285F4 mt-2">0%</p>
+                </div>
+                <div class="mt-6">
+                    <button id="reset-progress-btn" class="w-full bg-EA4335 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Reset Progress
+                    </button>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chat-modal-overlay" class="chat-modal-overlay">
+        <div class="chat-modal-content">
+            <div class="chat-header">
+                <h3 id="chat-topic-title" class="text-lg font-semibold text-f0f0f0">Chat with Gemini about: </h3>
+                <button id="chat-close-btn" class="chat-close-btn">&times;</button>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <!-- Chat messages will be appended here -->
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Ask Gemini a question...">
+                <button id="chat-send-btn" class="chat-send-btn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const studyPlanData = [
+            {
+                week: 1,
+                title: "Foundations & Core ML",
+                days: [
+                    { day: 1, title: "Programming & Math Fundamentals", topics: [{ title: "Python for ML (NumPy, Pandas)", concepts: "Array operations, dataframes, data manipulation, basic statistics.", activities: "Review NumPy and Pandas documentation/tutorials. Practice data loading, cleaning, and transformation." }, { title: "Linear Algebra for ML", concepts: "Vectors, matrices, dot products, matrix multiplication, eigenvalues, eigenvectors.", activities: "Watch explanatory videos (e.g., 3Blue1Brown's Essence of Linear Algebra). Solve practice problems." }] },
+                    { day: 2, title: "Calculus & Data Visualization", topics: [{ title: "Calculus for ML", concepts: "Derivatives, partial derivatives, chain rule, gradients.", activities: "Focus on understanding how these apply to optimization (e.g., gradient descent). Work through simple gradient calculations." }, { title: "Data Visualization (Matplotlib, Seaborn)", concepts: "Plotting distributions, relationships, categorical data.", activities: "Practice creating various plots (histograms, scatter plots, box plots) to understand data." }] },
+                    { day: 3, title: "Probability, Statistics & Version Control", topics: [{ title: "Probability & Statistics for ML", concepts: "Probability distributions, hypothesis testing, Bayesian thinking, descriptive statistics.", activities: "Understand concepts like mean, median, variance, standard deviation. Explore conditional probability." }, { title: "Version Control (Git & GitHub)", concepts: "Repositories, commits, branches, merges, pull requests.", activities: "Set up a GitHub account, practice basic Git commands (`clone`, `add`, `commit`, `push`, `pull`)." }] },
+                    { day: 4, title: "Supervised Learning (Regression) & Data Preprocessing", topics: [{ title: "Supervised Learning - Regression", concepts: "Linear Regression, Polynomial Regression, loss functions (MSE), gradient descent.", activities: "Implement a simple linear regression model from scratch or using scikit-learn." }, { title: "Data Preprocessing for ML", concepts: "Handling missing values, outlier detection, encoding categorical features (one-hot, label encoding), scaling (StandardScaler, MinMaxScaler).", activities: "Apply these techniques to a real-world dataset." }] },
+                    { day: 5, title: "Supervised Learning (Classification) & Model Evaluation", topics: [{ title: "Supervised Learning - Classification", concepts: "Logistic Regression, Decision Trees, SVMs, classification boundaries.", activities: "Implement a classification model." }, { title: "Model Evaluation Metrics (ML)", concepts: "Accuracy, Precision, Recall, F1-score, Confusion Matrix, ROC-AUC.", activities: "Calculate and interpret these metrics for your classification model." }] },
+                    { day: 6, title: "Unsupervised Learning & Feature Engineering", topics: [{ title: "Unsupervised Learning - Clustering", concepts: "K-Means, Hierarchical Clustering, DBSCAN, dimensionality reduction (PCA).", activities: "Apply K-Means to a dataset and visualize clusters. Understand PCA for data reduction." }, { title: "Feature Engineering", concepts: "Creating new features from existing ones, polynomial features, interaction terms, datetime features.", activities: "Brainstorm and create new features for a dataset to improve model performance." }] },
+                    { day: 7, title: "Ensemble Methods & Introduction to Deep Learning", topics: [{ title: "Ensemble Methods", concepts: "Bagging (Random Forests), Boosting (Gradient Boosting, XGBoost, LightGBM).", activities: "Compare the performance of a single decision tree vs. a Random Forest or XGBoost." }, { title: "Introduction to Deep Learning", concepts: "Why deep learning? Neural network basics, perceptron, multi-layer perceptron (MLP).", activities: "Read about the history and motivation behind deep learning." }] },
+                ]
+            },
+            {
+                week: 2,
+                title: "Deep Learning & Neural Networks",
+                days: [
+                    { day: 8, title: "Neural Network Fundamentals & Activation Functions", topics: [{ title: "Neural Network Fundamentals", concepts: "Neurons, layers (input, hidden, output), weights, biases, forward propagation.", activities: "Draw a simple neural network and trace the flow of data through it." }, { title: "Activation Functions", concepts: "Sigmoid, ReLU, Leaky ReLU, Tanh, Softmax.", activities: "Understand their mathematical forms and when to use each. Implement them in Python." }] },
+                    { day: 9, title: "Backpropagation & Optimization Algorithms", topics: [{ title: "Backpropagation", concepts: "The core algorithm for training neural networks, chain rule application.", activities: "Understand the conceptual flow of backpropagation. You don't need to implement it from scratch initially, but grasp *how* it works." }, { title: "Optimization Algorithms (Deep Learning)", concepts: "Gradient Descent, Stochastic Gradient Descent (SGD), Adam, RMSprop.", activities: "Understand how these algorithms update weights to minimize loss." }] },
+                    { day: 10, title: "CNNs & RNNs", topics: [{ title: "Convolutional Neural Networks (CNNs)", concepts: "Convolutional layers, pooling layers, filters, applications in image processing.", activities: "Explore basic CNN architectures (e.g., LeNet, AlexNet)." }, { title: "Recurrent Neural Networks (RNNs)", concepts: "Sequential data, hidden states, vanishing/exploding gradients, LSTM, GRU.", activities: "Understand why RNNs are used for sequences and the problems LSTMs/GRUs solve." }] },
+                    { day: 11, title: "Regularization & Transfer Learning", topics: [{ title: "Regularization Techniques (Deep Learning)", concepts: "Overfitting, Dropout, L1/L2 Regularization, Early Stopping.", activities: "Understand how these prevent overfitting and improve generalization." }, { title: "Transfer Learning", concepts: "Using pre-trained models, feature extraction, fine-tuning pre-trained models.", activities: "Explore examples of transfer learning in computer vision (e.g., using a pre-trained ResNet)." }] },
+                    { day: 12, title: "Introduction to Transformers & Self-Attention", topics: [{ title: "Introduction to the Transformer Architecture", concepts: "The 'Attention Is All You Need' paper, why Transformers surpassed RNNs for many tasks.", activities: "Get a high-level overview of the Transformer's components." }, { title: "Self-Attention Mechanism", concepts: "Query, Key, Value vectors, scaled dot-product attention, multi-head attention.", activities: "Understand how attention allows the model to weigh different parts of the input sequence." }] },
+                    { day: 13, title: "Encoder-Decoder & Positional Encoding", topics: [{ title: "Encoder-Decoder Architecture", concepts: "How Transformers handle sequence-to-sequence tasks (e.g., translation).", activities: "Trace the flow of information through the encoder and decoder." }, { title: "Positional Encoding", concepts: "Why positional information is needed in Transformers, different types of positional encoding.", activities: "Understand how the model learns about word order without recurrence or convolutions." }] },
+                    { day: 14, title: "Hugging Face & Pre-trained Models", topics: [{ title: "Hugging Face Transformers Library", concepts: "`AutoModel`, `AutoTokenizer`, `pipeline` API, datasets.", activities: "Install Hugging Face, load a pre-trained model and tokenizer, perform a simple task (e.g., sentiment analysis) using the pipeline." }, { title: "Overview of Pre-trained LLMs", concepts: "BERT, GPT, T5, RoBERTa, Electra. Understand their general purpose (encoder-only, decoder-only, encoder-decoder).", activities: "Read about the original papers or summaries of these foundational LLMs." }] },
+                ]
+            },
+            {
+                week: 3,
+                title: "LLM Concepts & Prompting",
+                days: [
+                    { day: 15, title: "LLM Architectures & Tokenization", topics: [{ title: "Detailed LLM Architectures (GPT, BERT, T5)", concepts: "Differences in their internal structure and how they are used for different tasks (e.g., GPT for generation, BERT for understanding).", activities: "Compare and contrast the use cases and strengths of decoder-only vs. encoder-only vs. encoder-decoder models." }, { title: "Tokenization", concepts: "WordPiece, BPE (Byte-Pair Encoding), SentencePiece, subword tokenization, vocabulary size.", activities: "Experiment with different tokenizers from Hugging Face and observe how text is broken down." }] },
+                    { day: 16, title: "Pre-training vs. Fine-tuning & Zero/Few-shot", topics: [{ title: "Pre-training vs. Fine-tuning", concepts: "Objectives of pre-training (next word prediction, masked language modeling), objectives of fine-tuning (task-specific adaptation).", activities: "Understand the data requirements and computational costs for each." }, { title: "Zero-shot and Few-shot Learning", concepts: "In-context learning, providing examples in the prompt, limitations.", activities: "Experiment with Gemini API or other LLMs to perform tasks with zero-shot and few-shot examples." }] },
+                    { day: 17, title: "Basic Prompt Engineering & In-context Learning", topics: [{ title: "Basic Prompt Engineering Principles", concepts: "Clarity, specificity, role-playing, constraints, delimiters.", activities: "Practice writing effective prompts for various tasks (summarization, Q&A, text generation)." }, { title: "In-context Learning Mechanics", concepts: "How LLMs learn from examples within the prompt without weight updates.", activities: "Read articles explaining the phenomenon of in-context learning." }] },
+                    { day: 18, title: "Advanced Prompting & Prompt Optimization", topics: [{ title: "Advanced Prompting Techniques", concepts: "Chain-of-Thought (CoT), Tree-of-Thought (ToT), Self-Consistency, Generated Knowledge Prompting.", activities: "Apply CoT prompting to a complex reasoning task with an LLM." }, { title: "Prompt Optimization Strategies", concepts: "Iterative refinement, A/B testing prompts, prompt templating.", activities: "Take a prompt and try to systematically improve its performance for a specific task." }] },
+                    { day: 19, title: "Instruction Tuning & RLHF (Conceptual)", topics: [{ title: "Instruction Tuning", concepts: "Fine-tuning on instruction-response pairs, aligning models with human instructions.", activities: "Understand how models like InstructGPT and Alpaca were created." }, { title: "Reinforcement Learning from Human Feedback (RLHF) - Conceptual", concepts: "Reward model, PPO (Proximal Policy Optimization), alignment.", activities: "Understand the three-step process of RLHF and its role in making LLMs helpful and harmless." }] },
+                    { day: 20, title: "Parameter-Efficient Fine-Tuning (PEFT)", topics: [{ title: "PEFT Overview", concepts: "Why PEFT is necessary (computational cost, storage), different categories of PEFT.", activities: "Understand the general idea of only updating a small subset of parameters." }, { title: "LoRA and QLoRA", concepts: "Low-Rank Adaptation, Quantized LoRA, how they reduce trainable parameters.", activities: "Look for tutorials on applying LoRA/QLoRA to fine-tune a model using Hugging Face PEFT library." }] },
+                    { day: 21, title: "Mixture of Experts & Model Quantization", topics: [{ title: "Mixture of Experts (MoE) Models", concepts: "Sparse activation, routing mechanism, benefits for scalability and efficiency.", activities: "Read about models like Mixtral and their architecture." }, { title: "Model Quantization", concepts: "Reducing precision (e.g., from FP32 to FP16, INT8), benefits for inference speed and memory.", activities: "Understand the trade-offs between precision and performance." }] },
+                ]
+            },
+            {
+                week: 4,
+                title: "RAG & LLM Deployment",
+                days: [
+                    { day: 22, title: "Retrieval-Augmented Generation (RAG) Overview", topics: [{ title: "RAG Architecture", concepts: "Retriever component, Generator component, why RAG is used (factual accuracy, reducing hallucinations, current information).", activities: "Understand how RAG combines information retrieval with LLM generation." }, { title: "Vector Embeddings", concepts: "How text is converted into numerical vectors, semantic similarity, embedding models (e.g., OpenAI Embeddings, Sentence Transformers).", activities: "Use an embedding model to generate embeddings for a few sentences and calculate cosine similarity." }] },
+                    { day: 23, title: "Vector Databases & Indexing Strategies", topics: [{ title: "Vector Databases/Vector Stores", concepts: "Pinecone, Weaviate, ChromaDB, FAISS, approximate nearest neighbor (ANN) search.", activities: "Explore the features of a couple of popular vector databases." }, { title: "Indexing Strategies for RAG", concepts: "How documents are indexed and stored in a vector database for efficient retrieval.", activities: "Understand the importance of efficient indexing for query speed." }] },
+                    { day: 24, title: "Chunking & Retrieval Mechanisms", topics: [{ title: "Document Chunking Strategies", concepts: "Fixed-size chunking, recursive chunking, overlapping chunks, semantic chunking.", activities: "Experiment with different chunking methods and their impact on retrieval." }, { title: "Retrieval Mechanisms", concepts: "Keyword search, vector search, hybrid search, re-ranking.", activities: "Understand how different retrieval methods can be combined for better results." }] },
+                    { day: 25, title: "RAG Evaluation & Query Transformation", topics: [{ title: "RAG Evaluation Metrics", concepts: "Contextual precision/recall/relevancy, answer relevancy, faithfulness, groundedness.", activities: "Understand how to measure the effectiveness of a RAG system." }, { title: "Query Transformation in RAG", concepts: "Using an LLM to rephrase or expand a user's query for better retrieval.", activities: "Experiment with simple query transformations before sending to the retriever." }] },
+                    { day: 26, title: "LLM Serving Frameworks & API Management", topics: [{ title: "LLM Serving Frameworks", concepts: "FastAPI, Flask, Triton Inference Server, vLLM (for fast inference).", activities: "Understand how these frameworks help in deploying LLMs for inference." }, { title: "API Management & Rate Limiting", concepts: "Designing robust APIs for LLM interaction, handling concurrency, rate limiting strategies.", activities: "Consider how to manage API keys and monitor usage for external LLM APIs." }] },
+                    { day: 27, title: "MLOps for LLMs & Model Versioning", topics: [{ title: "MLOps for LLMs (CI/CD, Monitoring)", concepts: "Continuous Integration/Continuous Delivery for LLM applications, monitoring model performance and data drift in production.", activities: "Understand the differences between traditional MLOps and MLOps for LLMs." }, { title: "Model Versioning & Registries", concepts: "Tracking different versions of fine-tuned models, using model registries (e.g., MLflow Model Registry).", activities: "Understand why versioning is crucial for reproducibility and rollback." }] },
+                    { day: 28, title: "Cloud AI/ML Services & Cost Optimization", topics: [{ title: "Cloud AI/ML Services for LLMs", concepts: "Google Cloud Vertex AI (Model Garden, Generative AI Studio), AWS SageMaker, Azure Machine Learning.", activities: "Explore the LLM capabilities offered by at least one major cloud provider." }, { title: "Cost Optimization for LLMs", concepts: "Token usage, model size, inference speed, quantization, batching.", activities: "Understand strategies to reduce the operational cost of running LLMs." }] },
+                ]
+            },
+            {
+                week: 5,
+                title: "Data Engineering & Responsible AI",
+                days: [
+                    { day: 29, title: "Large-scale Data Ingestion & Cleaning", topics: [{ title: "Large-scale Data Ingestion", concepts: "Strategies for collecting massive text datasets, distributed ingestion tools.", activities: "Consider challenges of ingesting petabytes of text data." }, { title: "Data Cleaning for LLMs", concepts: "Deduplication at scale, noise reduction (boilerplate removal, HTML tags), handling PII, language identification.", activities: "Research common data cleaning libraries and techniques for text." }] },
+                    { day: 30, title: "Distributed Data Processing & Normalization", topics: [{ title: "Distributed Data Processing (Spark/PySpark)", concepts: "RDDs, DataFrames, Spark SQL, distributed text processing with PySpark.", activities: "Practice basic PySpark operations for text data (e.g., word counts, transformations)." }, { title: "Data Normalization for LLMs", concepts: "Lowercasing, punctuation handling, unicode normalization, consistent formatting for training data.", activities: "Understand how consistent data format impacts LLM training." }] },
+                    { day: 31, title: "Data Governance & Security", topics: [{ title: "Data Governance for LLM Training Data", concepts: "Data lineage, data cataloging, data quality checks, metadata management.", activities: "Understand the importance of knowing your data source and transformations." }, { title: "Data Security & Privacy in LLM Pipelines", concepts: "Data encryption (at rest, in transit), access control, data masking, anonymization, PII redaction.", activities: "Research best practices for securing sensitive text data." }] },
+                    { day: 32, title: "Feature Stores & Real-time Pipelines", topics: [{ title: "Feature Stores for LLMs (Context)", concepts: "Storing and serving contextual features for RAG systems or other LLM applications.", activities: "Understand how a feature store can provide low-latency access to relevant information." }, { title: "Real-time Data Pipelines for LLMs", concepts: "Streaming data (Kafka, Kinesis), low-latency processing (Flink, Spark Streaming) for dynamic RAG contexts or real-time fine-tuning.", activities: "Explore scenarios where real-time data is critical for LLMs." }] },
+                    { day: 33, title: "Bias in LLMs & Fairness Metrics", topics: [{ title: "Sources and Types of Bias in LLMs", concepts: "Dataset bias, algorithmic bias, societal bias, stereotypes, harmful associations.", activities: "Read case studies of LLM bias and their real-world impact." }, { title: "Fairness Metrics & Mitigation Strategies", concepts: "Demographic parity, equalized odds, counterfactual fairness, de-biasing techniques (in data, during training, post-processing).", activities: "Understand how to measure and address bias." }] },
+                    { day: 34, title: "LLM Explainability (XAI) & Privacy", topics: [{ title: "LLM Explainability (XAI)", concepts: "Interpretability vs. explainability, attention visualization, saliency maps, LIME, SHAP (conceptual for text).", activities: "Understand the challenges of explaining black-box LLMs." }, { title: "Privacy Concerns with LLMs", concepts: "Memorization, data leakage, membership inference attacks, differential privacy.", activities: "Research methods to enhance privacy in LLM training and inference." }] },
+                    { day: 35, title: "LLM Safety & AI Ethics Principles", topics: [{ title: "LLM Safety & Harmful Content Mitigation", concepts: "Toxicity detection, content moderation, guardrails, red teaming.", activities: "Understand techniques to prevent LLMs from generating harmful or inappropriate content." }, { title: "AI Ethics Principles & Guidelines", concepts: "Accounability, transparency, fairness, robustness, human oversight, beneficence, non-maleficence.", activities: "Familiarize yourself with frameworks like the NIST AI Risk Management Framework or similar guidelines." }] },
+                ]
+            },
+            {
+                week: 6,
+                title: "Advanced Topics & Project",
+                days: [
+                    { day: 36, title: "Adversarial Attacks & Robustness", topics: [{ title: "Adversarial Attacks on LLMs", concepts: "Prompt injection, jailbreaking, data poisoning, model stealing.", activities: "Understand how malicious actors can exploit LLMs and how to defend against it." }, { title: "LLM Robustness", concepts: "Making LLMs resilient to noisy inputs, adversarial examples, and distribution shifts.", activities: "Research techniques for improving LLM robustness." }] },
+                    { day: 37, title: "Multi-modal & Vision-Language Models", topics: [{ title: "Multi-modal LLMs (Conceptual)", concepts: "Combining text with other modalities (image, audio, video).", activities: "Understand the high-level architecture of models that process multiple input input types." }, { title: "Vision-Language Models (VLMs)", concepts: "CLIP, DALL-E, Stable Diffusion (text-to-image), image captioning.", activities: "Explore how text and image embeddings are aligned." }] },
+                    { day: 38, title: "Agentic LLM Systems & Tool Use", topics: [{ title: "LLM Agents", concepts: "LLMs as reasoning engines, planning, memory, observation, action.", activities: "Understand the concept of an LLM agent that can interact with its environment." }, { title: "Tool Use / Function Calling", concepts: "How LLMs can be prompted to use external tools (APIs, databases, code interpreters) to extend their capabilities.", activities: "Experiment with Gemini's function calling feature." }] },
+                    { day: 39, title: "LLM Orchestration Frameworks", topics: [{ title: "LangChain", concepts: "Chains, Agents, Prompts, Document Loaders, Retrievers, Memory.", activities: "Build a simple RAG application using LangChain." }, { title: "LlamaIndex", concepts: "Data Connectors, Indexes, Query Engines, Composability.", activities: "Explore LlamaIndex for building data-aware LLM applications, especially for complex data sources." }] },
+                    { day: 40, title: "LLM Project Lifecycle & Business Integration", topics: [{ title: "End-to-End LLM Project Lifecycle", concepts: "Problem definition, data collection, model selection, fine-tuning, deployment, monitoring, iteration.", activities: "Review the complete lifecycle from a project management perspective." }, { title: "Integrating LLMs into Business Processes", concepts: "Identifying use cases, ROI, change management, user adoption, ethical considerations in business.", activities: "Think about how LLMs can solve real-world business problems in your domain." }] },
+                    { day: 41, title: "Capstone Project Planning", topics: [{ title: "Capstone Project Planning", concepts: "Choose a project that integrates multiple concepts learned (e.g., RAG system for a specific domain, fine-tuning an LLM for a niche task, building an LLM agent). Define scope, data sources, desired outcomes.", activities: "Spend time brainstorming, researching, and outlining your project." }, { title: "Initial Implementation & Setup", concepts: "Set up your development environment, acquire initial data, build foundational components.", activities: "Start coding your capstone project. This will be an ongoing effort beyond this plan." }] },
+                    { day: 42, title: "Project Work & Review", topics: [{ title: "Project Development", concepts: "Focus on building the core functionality of your capstone project.", activities: "Implement the main features, test, and debug." }, { title: "Review and Refine", concepts: "Review your progress, refine your project, and document your work.", activities: "Clean up your code, write a README, and prepare to share your project." }] },
+                ]
+            }
+        ];
+
+        let progressChart;
+        let progressState = {};
+        const totalTopics = studyPlanData.reduce((acc, week) => acc + week.days.reduce((dAcc, day) => dAcc + day.topics.length, 0), 0);
+
+        // Function definitions moved to the top
+        function loadProgress() {
+            const savedProgress = localStorage.getItem('llmStudyProgress');
+            if (savedProgress) {
+                progressState = JSON.parse(savedProgress);
+            }
+        }
+
+        function saveProgress() {
+            localStorage.setItem('llmStudyProgress', JSON.stringify(progressState));
+        }
+
+        function initTabs() {
+            const tabsContainer = document.getElementById('week-tabs');
+            studyPlanData.forEach((weekData, index) => {
+                const tab = document.createElement('button');
+                tab.className = 'week-tab text-sm sm:text-base font-medium py-3 px-4 border-b-4 border-transparent hover:bg-111111 hover:border-4285F4';
+                tab.textContent = `Week ${weekData.week}: ${weekData.title}`;
+                tab.dataset.week = weekData.week;
+                tab.addEventListener('click', () => {
+                    renderWeek(weekData.week);
+                    document.querySelectorAll('.week-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                });
+                tabsContainer.appendChild(tab);
+
+                if (index === 0) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        // Function to convert basic Markdown to HTML
+        function markdownToHtml(markdown) {
+            let html = markdown;
+            // Convert headings (H3 before H2 to prevent ### becoming <h2>)
+            html = html.replace(/^###\s*(.*)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^##\s*(.*)$/gm, '<h2>$1</h2>');
+            // Convert bold (**text**)
+            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            // Convert italic (*text*)
+            html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
+            // Convert newlines to breaks
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        async function fetchGeminiExplanation(topicTitle, topicConcepts, explanationDiv) {
+            explanationDiv.innerHTML = '<p class="text-b0b0b0">Loading explanation from Gemini... ✨</p>';
+            explanationDiv.classList.add('open');
+
+            const prompt = `Explain the following AI/LLM topic in detail, including its key concepts and practical relevance. Also, suggest one or two additional learning activities or real-world examples to deepen understanding. Format the response clearly with headings (## and ###) if necessary, and use **bold** for key terms and *italics* for emphasis.`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            chatHistory.push({ role: "user", parts: [{ text: `Topic: ${topicTitle}\nKey Concepts: ${topicConcepts}` }] });
+
+            const payload = { contents: chatHistory };
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let responseText = "Failed to load explanation. Please try again.";
+            let retries = 0;
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 second
+
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        responseText = result.candidates[0].content.parts[0].text;
+                        break; // Success, exit loop
+                    } else {
+                        throw new Error("Unexpected API response structure.");
+                    }
+                } catch (error) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        const delay = baseDelay * Math.pow(2, retries - 1);
+                        await new Promise(res => setTimeout(res, delay));
+                    } else {
+                        console.error("Gemini API call failed after multiple retries:", error);
+                    }
+                }
+            }
+            explanationDiv.innerHTML = markdownToHtml(responseText); // Use the markdownToHtml function
+        }
+
+
+        function renderWeek(weekNumber) {
+            const weekData = studyPlanData.find(w => w.week === weekNumber);
+            const container = document.getElementById('daily-plan-container');
+            container.innerHTML = '';
+
+            weekData.days.forEach(dayData => {
+                const dayAccordion = document.createElement('div');
+                dayAccordion.className = 'day-accordion border-b border-555555 last:border-b-0';
+
+                const header = document.createElement('div');
+                header.className = 'day-accordion-header cursor-pointer p-4 hover:bg-111111 flex justify-between items-center';
+                header.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="text-34A853 font-bold mr-4">Day ${dayData.day}</span>
+                        <h3 class="text-lg font-semibold text-f0f0f0">${dayData.title}</h3>
+                    </div>
+                    <span class="transform transition-transform duration-300 text-FBBC05 font-bold text-xl">+</span>
+                `;
+                header.addEventListener('click', () => {
+                    dayAccordion.classList.toggle('open');
+                    const icon = header.querySelector('span:last-child');
+                    icon.textContent = dayAccordion.classList.contains('open') ? '−' : '+';
+                    icon.classList.toggle('rotate-90');
+                });
+
+                const content = document.createElement('div');
+                content.className = 'day-accordion-content px-4';
+                
+                dayData.topics.forEach((topic, index) => {
+                    const topicDiv = document.createElement('div');
+                    topicDiv.className = 'mb-6 p-4 bg-111111 rounded-lg fade-in-slide-up'; // Added animation class
+                    topicDiv.style.animationDelay = `${index * 0.1}s`; // Staggered animation
+                    const topicId = `w${weekNumber}-d${dayData.day}-t${index}`;
+                    const isChecked = progressState[topicId] || false;
+
+                    topicDiv.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <h4 class="text-md font-bold text-f0f0f0 mb-2">${topic.title}</h4>
+                            <input type="checkbox" id="${topicId}" class="ml-4 mt-1" ${isChecked ? 'checked' : ''}>
+                        </div>
+                        <p class="text-sm text-b0b0b0 mb-2"><strong class="font-semibold text-e0e0e0">Concepts:</strong> ${topic.concepts}</p>
+                        <p class="text-sm text-b0b0b0"><strong class="font-semibold text-e0e0e0">Activities:</strong> ${topic.activities}</p>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button class="bg-4285F4 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors explain-gemini-btn" data-topic-title="${topic.title}" data-topic-concepts="${topic.concepts}">
+                                ✨ Explain with Gemini
+                            </button>
+                            <button class="bg-FBBC05 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg text-sm transition-colors chat-gemini-btn" data-topic-title="${topic.title}" data-topic-concepts="${topic.concepts}">
+                                💬 Chat with Gemini
+                            </button>
+                        </div>
+                        <div class="gemini-explanation-content mt-4 p-4 rounded-lg text-sm"></div>
+                    `;
+                    content.appendChild(topicDiv);
+
+                    topicDiv.querySelector(`#${topicId}`).addEventListener('change', (e) => {
+                        progressState[e.target.id] = e.target.checked;
+                        saveProgress();
+                        updateProgress();
+                    });
+
+                    const explainButton = topicDiv.querySelector('.explain-gemini-btn');
+                    const explanationContentDiv = topicDiv.querySelector('.gemini-explanation-content');
+                    explainButton.addEventListener('click', () => {
+                        if (explanationContentDiv.classList.contains('open') && explanationContentDiv.innerHTML !== '<p class="text-b0b0b0">Loading explanation from Gemini... ✨</p>') {
+                            explanationContentDiv.classList.remove('open');
+                            explanationContentDiv.innerHTML = ''; // Clear content when closing
+                        } else {
+                            fetchGeminiExplanation(
+                                explainButton.dataset.topicTitle,
+                                explainButton.dataset.topicConcepts,
+                                explanationContentDiv
+                            );
+                        }
+                    });
+
+                    const chatButton = topicDiv.querySelector('.chat-gemini-btn');
+                    chatButton.addEventListener('click', () => {
+                        openChatModal(chatButton.dataset.topicTitle, chatButton.dataset.topicConcepts);
+                    });
+                });
+
+                dayAccordion.appendChild(header);
+                dayAccordion.appendChild(content);
+                container.appendChild(dayAccordion);
+            });
+        }
+        
+        function initChart() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Remaining'],
+                    datasets: [{
+                        data: [0, totalTopics],
+                        backgroundColor: ['#34A853', '#222222'], /* Google Green for completed, dark gray for remaining */
+                        borderColor: ['#000000', '#000000'], /* Pitch black border */
+                        borderWidth: 4,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateProgress() {
+            const completedCount = Object.values(progressState).filter(Boolean).length;
+            const percentage = totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
+
+            document.getElementById('completed-topics-count').textContent = completedCount;
+            document.getElementById('total-topics-count').textContent = totalTopics;
+            document.getElementById('progress-percentage').textContent = `${percentage}%`;
+            
+            progressChart.data.datasets[0].data[0] = completedCount;
+            progressChart.data.datasets[0].data[1] = totalTopics - completedCount;
+            progressChart.update();
+        }
+
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset all your progress? This action cannot be undone.')) {
+                progressState = {};
+                localStorage.removeItem('llmStudyProgress');
+                renderWeek(parseInt(document.querySelector('.week-tab.active').dataset.week));
+                updateProgress();
+            }
+        }
+
+        // Chat Modal Logic
+        const chatModalOverlay = document.getElementById('chat-modal-overlay');
+        const chatCloseBtn = document.getElementById('chat-close-btn');
+        const chatTopicTitle = document.getElementById('chat-topic-title');
+        const chatMessagesDiv = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendBtn = document.getElementById('chat-send-btn');
+
+        let currentChatHistory = [];
+        let currentTopicContext = '';
+
+        function openChatModal(topicTitle, topicConcepts) {
+            chatModalOverlay.classList.add('open');
+            chatTopicTitle.textContent = `Chat with Gemini about: ${topicTitle}`;
+            chatMessagesDiv.innerHTML = ''; // Clear previous chat
+            currentChatHistory = []; // Reset chat history
+            currentTopicContext = `You are discussing the AI/LLM topic "${topicTitle}" with key concepts: "${topicConcepts}". Keep your responses focused on this topic.`;
+            
+            // Add an initial message from Gemini
+            appendMessage('gemini', `Hello! I'm Gemini. How can I help you understand "${topicTitle}" better?`);
+            chatInput.focus();
+        }
+
+        function closeChatModal() {
+            chatModalOverlay.classList.remove('open');
+        }
+
+        function appendMessage(role, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role}`;
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'chat-message-bubble';
+            bubbleDiv.innerHTML = markdownToHtml(text); // Use markdownToHtml for chat messages
+            messageDiv.appendChild(bubbleDiv);
+            chatMessagesDiv.appendChild(messageDiv);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; // Scroll to bottom
+        }
+
+        async function sendMessage() {
+            const userMessage = chatInput.value.trim();
+            if (userMessage === '') return;
+
+            appendMessage('user', userMessage);
+            currentChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+            chatInput.value = ''; // Clear input
+
+            // Add loading indicator
+            const loadingMessageDiv = document.createElement('div');
+            loadingMessageDiv.className = 'chat-message gemini';
+            loadingMessageDiv.innerHTML = '<div class="chat-message-bubble">Typing...</div>';
+            chatMessagesDiv.appendChild(loadingMessageDiv);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+
+            const prompt = currentTopicContext + "\n" + userMessage;
+
+            const payload = { contents: currentChatHistory };
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let responseText = "Sorry, I couldn't get a response. Please try again.";
+            let retries = 0;
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 second
+
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        responseText = result.candidates[0].content.parts[0].text;
+                        break; // Success, exit loop
+                    } else {
+                        throw new Error("Unexpected API response structure or no content.");
+                    }
+                } catch (error) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        const delay = baseDelay * Math.pow(2, retries - 1);
+                        await new Promise(res => setTimeout(res, delay));
+                    } else {
+                        console.error("Gemini API call failed after multiple retries:", error);
+                    }
+                }
+            }
+            
+            chatMessagesDiv.removeChild(loadingMessageDiv); // Remove loading indicator
+            appendMessage('gemini', responseText);
+            currentChatHistory.push({ role: "model", parts: [{ text: responseText }] });
+        }
+
+        chatSendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        chatCloseBtn.addEventListener('click', closeChatModal);
+
+
+        // DOMContentLoaded event listener
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProgress();
+            initTabs();
+            renderWeek(1);
+            initChart();
+            updateProgress();
+            document.getElementById('reset-progress-btn').addEventListener('click', resetProgress);
+        });
+
+    </script>
+</body>
+</html>
