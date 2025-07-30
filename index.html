@@ -447,7 +447,8 @@
             chatHistory.push({ role: "user", parts: [{ text: `Topic: ${topicTitle}\nKey Concepts: ${topicConcepts}` }] });
 
             const payload = { contents: chatHistory };
-            const apiKey = ""; 
+            // IMPORTANT: Replace "YOUR_GEMINI_API_KEY" with your actual Gemini API key
+            const apiKey = "AIzaSyB1C7QavOHFlBNBm8i9amTnptBRnetb7sE"; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             let responseText = "Failed to load explanation. Please try again.";
@@ -693,7 +694,8 @@
             currentChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
 
             const payload = { contents: payloadContents };
-            const apiKey = ""; 
+            // IMPORTANT: Replace "YOUR_GEMINI_API_KEY" with your actual Gemini API key
+            const apiKey = "YOUR_GEMINI_API_KEY"; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             let responseText = "Sorry, I couldn't get a response. Please try again.";
