@@ -2,6 +2,7 @@ name: Inject Secrets and Deploy to Pages
 on:
   push:
     branches: ["main"] # Ensure this matches your default branch name
+workflow_dispatch: # This line enables the manual trigger button
 
 # Permissions required to deliver the site to GitHub Pages
 permissions:
@@ -27,7 +28,7 @@ jobs:
       - name: Inject secret into HTML
         # Replaces __MY_SECRET_PLACEHOLDER__ with your actual GitHub Secret
         run: |
-          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.MY_ENVIRONMENT_SECRET }}/g" index.html
+          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.GEMINI_KEY }}/g" index.html
 
       - name: Setup Pages
         uses: [actions/configure-pages@v5](https://github.com)
