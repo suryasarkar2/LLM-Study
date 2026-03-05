@@ -1,0 +1,17 @@
+name: Inject Secrets and Deploy
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Specify the environment to access its specific secrets
+    environment: production 
+    steps:
+      - name: Checkout code
+        uses: [actions/checkout@v4](https://github.com)
+
+      - name: Inject secret into HTML
+        run: |
+          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.GEMINI_KEY }}/g" index.html
+
+      # Add your deployment steps here (e.g., to GitHub Pages or S3)
