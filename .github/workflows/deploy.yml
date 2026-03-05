@@ -1,17 +1,42 @@
-name: Inject Secrets and Deploy
-on: [push]
+name: Inject Secrets and Deploy to Pages
+on:
+  push:
+    branches: ["main"] # Ensure this matches your default branch name
+
+# Permissions required to deliver the site to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Avoid multiple deployments running at the same time
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    # Specify the environment to access its specific secrets
-    environment: production 
     steps:
       - name: Checkout code
         uses: [actions/checkout@v4](https://github.com)
 
       - name: Inject secret into HTML
+        # Replaces __MY_SECRET_PLACEHOLDER__ with your actual GitHub Secret
         run: |
-          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.GEMINI_KEY }}/g" index.html
+          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.MY_ENVIRONMENT_SECRET }}/g" index.html
 
-      # Add your deployment steps here (e.g., to GitHub Pages or S3)
+      - name: Setup Pages
+        uses: [actions/configure-pages@v5](https://github.com)
+
+      - name: Upload artifact
+        uses: [actions/upload-pages-artifact@v3](https://github.com)
+        with:
+          path: '.' # Location of your index.html
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: [actions/deploy-pages@v4](https://github.com)
