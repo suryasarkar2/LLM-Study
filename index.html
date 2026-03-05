@@ -25,5 +25,23 @@
     <footer>
         <p>Published on March 5, 2026</p>
     </footer>
+
+    <script type="module">
+        // Load API key from environment variable
+        const apiKey = import.meta.env.VITE_API_KEY;
+        
+        if (!apiKey) {
+            console.error('API key not found. Please set VITE_API_KEY in your .env file');
+        } else {
+            console.log('API Key loaded successfully from environment variable');
+            // Use the apiKey in your API calls
+            // Example: 
+            // fetch('your-api-endpoint', {
+            //     headers: {
+            //         'Authorization': `Bearer ${apiKey}`
+            //     }
+            // })
+        }
+    </script>
 </body>
 </html>
