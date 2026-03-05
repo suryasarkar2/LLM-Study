@@ -1,16 +1,14 @@
 name: Inject Secrets and Deploy to Pages
 on:
   push:
-    branches: ["main"] # Ensure this matches your default branch name
-workflow_dispatch: # This line enables the manual trigger button
+    branches: ["main"]
+  workflow_dispatch: # Added manual trigger for you too
 
-# Permissions required to deliver the site to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Avoid multiple deployments running at the same time
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -23,21 +21,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: [actions/checkout@v4](https://github.com)
+        uses: actions/checkout@v4
 
       - name: Inject secret into HTML
-        # Replaces __MY_SECRET_PLACEHOLDER__ with your actual GitHub Secret
         run: |
-          sed -i "s/__MY_SECRET_PLACEHOLDER__/${{ secrets.GEMINI_KEY }}/g" index.html
+          sed -i "s@__MY_SECRET_PLACEHOLDER__@${{ secrets.GEMINI_KEY }}@g" index.html
 
       - name: Setup Pages
-        uses: [actions/configure-pages@v5](https://github.com)
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        uses: [actions/upload-pages-artifact@v3](https://github.com)
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: '.' # Location of your index.html
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: [actions/deploy-pages@v4](https://github.com)
+        uses: actions/deploy-pages@v4
